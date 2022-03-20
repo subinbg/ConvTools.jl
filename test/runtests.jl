@@ -12,8 +12,7 @@ if (Threads.nthreads() == 1)
     @warn "(# of threads) is 1. Turn on the multithreading by e.g. `julia -t auto ...`"
 end
 
-function test_fourier_transform(imF::ImplicitFFT{N,T}, input::T, bench::Bool) #=
-    =# where {T<:AbstractArray{<:Complex}, N}
+function test_fourier_transform(imF::ImplicitFFT{N,T}, input::T, bench::Bool) where {N,T}
 
     randn!(input)
     input_copy1 = T(undef, size(input))
@@ -68,8 +67,7 @@ function test_fourier_transform(imF::ImplicitFFT{N,T}, input::T, bench::Bool) #=
 end
 
 
-function test_convolution(UC::UniformConv, input::T, cpukernel::Bool, bench::Bool=false) #=
-    =# where {T<:AbstractArray{<:Complex}}
+function test_convolution(UC::UniformConv, input::T, cpukernel::Bool) where T
 
     randn!(input)
     input_copy1 = T(undef, size(input))
@@ -78,41 +76,41 @@ function test_convolution(UC::UniformConv, input::T, cpukernel::Bool, bench::Boo
     kernel = cpukernel ? Array{eltype(T),ndims(T)}(undef, size(input_pad)) : T(undef, size(input_pad))
     randn!(kernel)
 
-    if bench
-        x, UC_pre = preallocate(UC, input_copy2, kernel, input_copy2)
-        if T<:CuArray
-            bench_noalloc = @benchmark CUDA.@sync $UC($input_copy2, $kernel, $input_copy2)
-            bench_prealloc = @benchmark CUDA.@sync $UC_pre($input_copy2, $kernel, $input_copy2)
-        else
-            bench_noalloc = @benchmark $UC($input_copy2, $kernel, $input_copy2)
-            bench_prealloc = @benchmark $UC_pre($input_copy2, $kernel, $input_copy2)
-        end
+    do_fft = plan_fft(input_pad)
+    do_ifft = plan_ifft(input_pad)
+    forward = x -> fftshift(do_fft*fftshift(x))
+    adjoint = x -> fftshift(do_ifft*fftshift(x))
 
-        return bench_noalloc, bench_prealloc
-    else
-        do_fft = plan_fft(input_pad)
-        do_ifft = plan_ifft(input_pad)
-        forward = x -> fftshift(do_fft*fftshift(x))
-        adjoint = x -> fftshift(do_ifft*fftshift(x))
+    fill!(input_pad, 0)
+    copyto!(view(input_pad, [(n÷2+1):(3*n÷2) for n in size(input)]...), input)
 
-        fill!(input_pad, 0)
-        copyto!(view(input_pad, [(n÷2+1):(3*n÷2) for n in size(input)]...), input)
+    Ff = forward(input_pad)
+    Gf = adjoint(Ff .* T(kernel))
+    copyto!(input_copy1, view(Gf, [(n÷2+1):(3*n÷2) for n in size(input)]...))
 
-        Ff = forward(input_pad)
-        Gf = adjoint(Ff .* T(kernel))
-        copyto!(input_copy1, view(Gf, [(n÷2+1):(3*n÷2) for n in size(input)]...))
+    copyto!(input_copy2, input)
 
-        copyto!(input_copy2, input)
+    UC(input_copy2, kernel, input_copy2)
 
-        UC(input_copy2, kernel, input_copy2)
- 
-        return isapprox(input_copy1, input_copy2)
-    end
+    return isapprox(input_copy1, input_copy2)
 end
 
 
 @testset "ConvTools.jl" begin
     arrtypes = CUDA.functional() ? (Array, CuArray) : (Array,) 
+    for arrtype in arrtypes
+        for fp in (ComplexF32, ComplexF64)
+            for dim in (1,2,3)
+                @testset "($arrtype, $fp, $dim)" begin
+                    input = arrtype{fp,dim}(undef, [2*rand(50:80) for n in 1:dim]...)
+                    imF = ImplicitFFT(input)
+                    checks = test_fourier_transform(imF, input, false)
+                    @test all(checks)
+                end
+            end
+        end
+    end
+
     for arrtype in arrtypes
         for fp in (ComplexF32, ComplexF64)
             for dim in (1,2,3)
@@ -123,20 +121,6 @@ end
                         check = test_convolution(UC, input, cpukernel)
                         @test all(check)
                     end
-                end
-            end
-        end
-    end
-    
-    arrtypes = CUDA.functional() ? (Array, CuArray) : (Array,) 
-    for arrtype in arrtypes
-        for fp in (ComplexF32, ComplexF64)
-            for dim in (1,2,3)
-                @testset "($arrtype, $fp, $dim)" begin
-                    input = arrtype{fp,dim}(undef, [2*rand(50:80) for n in 1:dim]...)
-                    imF = ImplicitFFT(input)
-                    checks = test_fourier_transform(imF, input, false)
-                    @test all(checks)
                 end
             end
         end
