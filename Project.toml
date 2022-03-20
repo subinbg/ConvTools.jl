@@ -3,6 +3,12 @@ uuid = "2c30f75d-9d05-4751-823b-64c08dbb3ed3"
 authors = ["Subeen Pang <subinbg@users.noreply.github.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+Adroit = "ab3c0708-4d4d-4772-b919-fe11e30c89de"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+Pnufft = "c8d4d490-ec5c-45bb-97ad-a9c139c85725"
+
 [compat]
 julia = "1.6"
 
