@@ -10,6 +10,7 @@ FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 Pnufft = "c8d4d490-ec5c-45bb-97ad-a9c139c85725"
 
 [compat]
+CUDA = "3"
 julia = "1.6"
 
 [extras]
