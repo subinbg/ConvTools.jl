@@ -5,10 +5,9 @@ where `A = kernel*fftshift(fft(fftshift(input)))`.
 
 It does not matter if `input === output`.
 """
-struct UniformConv{F,R} <: AbstractConv
+struct UniformConv{F,R}
     imfft::F
     offset::Array{Int,2}
-    recorder::R
 end
 
 function UniformConv(::Type{T}, sz::Dims{N}) #=
@@ -20,37 +19,28 @@ function UniformConv(::Type{T}, sz::Dims{N}) #=
     offset = Array{Int,2}(undef, N, 2^N)
     set_offset!(offset)
 
-    recorder = MemoryRecorder()
-    UniformConv(imfft, offset, recorder)
+    UniformConv{typeof(imfft),typeof(offset)}(imfft, offset)
 end
 
 const ValidArrType = AbstractArray{<:Union{ComplexF32,ComplexF64}}
 function (UC::UniformConv)(output::T, kernel::A, input::T) #=
     =# where {T<:ValidArrType,A<:ValidArrType}
 
-    Rec = UC.recorder
     input_sz = size(input)
     kernel_part_copy_sz = T == A ? Tuple(zeros(Int, ndims(output))) : input_sz
 
-    @record Rec begin
-        kernel_part_copy_cpu = A(undef, kernel_part_copy_sz)
-        kernel_part_copy_gpu = T(undef, kernel_part_copy_sz)
-        output_part = T(undef, input_sz)
-    end
-
+    kernel_part_copy_cpu = A(undef, kernel_part_copy_sz)
+    kernel_part_copy_gpu = T(undef, kernel_part_copy_sz)
+    output_part = T(undef, input_sz)
+    
     # do this because it is possible that input == output
     if output === input
-        @record Rec input_copy = T(undef, input_sz)
+        input_copy = T(undef, input_sz)
     else
         input_copy = input
     end
     
     UC(output, kernel, input, input_copy, output_part, kernel_part_copy_cpu, kernel_part_copy_gpu)
-
-    @free Rec kernel_part_copy_cpu kernel_part_copy_gpu output_part
-    if output === input
-        @free Rec input_copy
-    end
 end
 
 function (UC::UniformConv)(

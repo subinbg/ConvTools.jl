@@ -1,9 +1,7 @@
 using CUDA
 using FFTW
-using BenchmarkTools
 using Test
 using Random
-using Adroit
 using ConvTools
 
 CUDA.allowscalar(false)
@@ -47,21 +45,21 @@ function test_fourier_transform(imF::ImplicitFFT{N,T}, input::T, bench::Bool) wh
     end
     checks[end] = isapprox(input, input_copy3)
 
-    if bench
-        bench = @benchmark begin
-            Ff = $forward($input_pad)
-        end
-        t_normal = BenchmarkTools.prettytime(time(median(bench)))
+    # if bench
+    #     bench = @benchmark begin
+    #         Ff = $forward($input_pad)
+    #     end
+    #     t_normal = BenchmarkTools.prettytime(time(median(bench)))
         
-        bench = @benchmark begin
-            for idx in 1:size($offset,2)
-                $imF($input_copy1, 1, true, $offset[:,idx]...)
-            end
-        end
-        t_implicit = BenchmarkTools.prettytime(time(median(bench)))
+    #     bench = @benchmark begin
+    #         for idx in 1:size($offset,2)
+    #             $imF($input_copy1, 1, true, $offset[:,idx]...)
+    #         end
+    #     end
+    #     t_implicit = BenchmarkTools.prettytime(time(median(bench)))
         
-        return t_normal, t_implicit
-    end
+    #     return t_normal, t_implicit
+    # end
 
     return checks
 end
