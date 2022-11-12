@@ -5,7 +5,7 @@ where `A = kernel*fftshift(fft(fftshift(input)))`.
 
 It does not matter if `input === output`.
 """
-struct UniformConv{F,R}
+struct UniformConv{F,R} <: AbstractConv
     imfft::F
     offset::Array{Int,2}
 end
